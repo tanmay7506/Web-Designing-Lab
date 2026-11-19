@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            background: beige;
+            padding: 40px;
+        }
+
+        .container {
+            background: white;
+            padding: 25px;
+            width: 300px;
+            margin: auto;
+            border-radius: 10px;
+        }
+
+        input,
+        button {
+            padding: 10px;
+            margin: 5px;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        #weather {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Weather App</h2>
+        <input type="text" id="city" placeholder="Enter city name">
+
+        <button onclick="getWeather()">Search</button>
+
+        <div id="weather"></div>
+
+    </div>
+
+    <script>
+
+        async function getWeather() {
+            let city = document.getElementById("city").value.trim();
+            let result = document.getElementById("weather");
+
+            if (city === "") {
+                result.innerHTML = "PLease enter a city name"
+                return;
+            }
+
+            result.innerHTML = "Loading...";
+
+            try {
+                let geoURL = `https://geocode.maps.co/search?name=${encodeURIComponent(city)}&api_key=6afdaf05c6d79676145096zeo3b5d1e`;
+
+                let geoResponse = await fetch(geoURL);
+                let geoData = await geoResponse.json();
+
+                if (!geoData.results || geoData.results.length === 0) {
+                    throw new Error("City not found");
+                }
+
+                let place = geoData.results[0];
+
+                let latitutde = place.latitutde;
+                let longitude = place.longitude;
+
+                let weatherURL = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&timezone=auto`;
+
+                let response = await fetch(weatherURL);
+                let data = await response.json();
+
+                if (!response.ok || !data.current) {
+                    throw new Error("Unable to fetch weather");
+                }
+
+                let weather = data.current;
+
+                result.innerHTML = `
+                    <h3>${place.name}, ${place.country}</h3>
+                    
+                    <h2>${weather.temperature_2m} °C</h2>
+
+                    <p>Feels like: ${weather.apparent_temperature} °C</p>
+
+                    <p>Humidity: ${weather.relative_humidity_2m}%</p>
+
+                    <p>Wind Speed: ${weather.wind_speed_10m} km/h</p>
+
+                    <Weather Code: ${weather.weather_code}</p>
+                    `
+            }
+
+            catch (error) {
+                result.innerHTML = error.message;
+            }
+        }
+    </script>
+</body>
+
+</html>
