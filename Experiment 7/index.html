@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>React Notes</title>
+
+    <!-- React 18 + ReactDOM + Babel (JSX in the browser) via CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, sans-serif;
+            background: #f3f4f6;
+            margin: 0;
+            color: #111827;
+        }
+
+        .app {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 24px 16px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        form,
+        .note {
+            background: #fff;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .1);
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font: inherit;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+        }
+
+        button {
+            padding: 8px 14px;
+            border: 0;
+            border-radius: 6px;
+            cursor: pointer;
+            font: inherit;
+            color: #fff;
+            background: #2563eb;
+        }
+
+        button.edit {
+            background: #f59e0b;
+        }
+
+        button.delete {
+            background: #dc2626;
+        }
+
+        button.cancel {
+            background: #6b7280;
+        }
+
+        .notes {
+            display: grid;
+            gap: 12px;
+        }
+
+        .note h3 {
+            margin: 0 0 6px;
+        }
+
+        .note p {
+            margin: 0 0 12px;
+            white-space: pre-wrap;
+        }
+
+        .note small {
+            color: #6b7280;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .empty {
+            text-align: center;
+            color: #6b7280;
+        }
+
+        @media (min-width: 700px) {
+            .notes {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // ---- Form used for both adding and editing ----
+        function NoteForm({ onSave, editingNote, onCancel }) {
+            const [title, setTitle] = useState("");
+            const [content, setContent] = useState("");
+
+            // When a note is chosen for editing, fill the form with its values
+            useEffect(() => {
+                setTitle(editingNote ? editingNote.title : "");
+                setContent(editingNote ? editingNote.content : "");
+            }, [editingNote]);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!title.trim() || !content.trim()) return;
+                onSave({ title: title.trim(), content: content.trim() });
+                setTitle("");
+                setContent("");
+            };
+
+            return (
+                <form onSubmit={handleSubmit}>
+                    <input
+                        placeholder="Title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                    />
+                    <textarea
+                        placeholder="Write your note..."
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                    />
+                    <div className="row">
+                        <button type="submit">{editingNote ? "Update Note" : "Add Note"}</button>
+                        {editingNote && (
+                            <button type="button" className="cancel" onClick={onCancel}>Cancel</button>
+                        )}
+                    </div>
+                </form>
+            );
+        }
+
+        // ---- A single note card ----
+        function NoteItem({ note, onEdit, onDelete }) {
+            return (
+                <div className="note">
+                    <h3>{note.title}</h3>
+                    <small>{new Date(note.updatedAt).toLocaleString()}</small>
+                    <p>{note.content}</p>
+                    <div className="row">
+                        <button className="edit" onClick={() => onEdit(note)}>Edit</button>
+                        <button className="delete" onClick={() => onDelete(note.id)}>Delete</button>
+                    </div>
+                </div>
+            );
+        }
+        // ---- Root component ----
+        function App() {
+            // Load saved notes from localStorage on first render
+            const [notes, setNotes] = useState(() => {
+                try {
+                    return JSON.parse(localStorage.getItem("notes")) || [];
+                } catch {
+                    return [];
+                }
+            });
+            const [editingNote, setEditingNote] = useState(null);
+
+            // Persist notes whenever they change
+            useEffect(() => {
+                localStorage.setItem("notes", JSON.stringify(notes));
+            }, [notes]);
+
+            // CREATE or UPDATE
+            const saveNote = ({ title, content }) => {
+                if (editingNote) {
+                    setNotes(notes.map((n) =>
+                        n.id === editingNote.id ? { ...n, title, content, updatedAt: Date.now() } : n
+                    ));
+                    setEditingNote(null);
+                } else {
+                    setNotes([{ id: Date.now(), title, content, updatedAt: Date.now() }, ...notes]);
+                }
+            };
+
+            // DELETE
+            const deleteNote = (id) => {
+                if (!window.confirm("Delete this note?")) return;
+                setNotes(notes.filter((n) => n.id !== id));
+                if (editingNote && editingNote.id === id) setEditingNote(null);
+            };
+
+            return (
+                <div className="app">
+                    <h1>📝 React Notes</h1>
+                    <NoteForm
+                        onSave={saveNote}
+                        editingNote={editingNote}
+                        onCancel={() => setEditingNote(null)}
+                    />
+                    {notes.length === 0 ? (
+                        <p className="empty">No notes yet. Add your first one above!</p>
+                    ) : (
+                        <div className="notes">
+                            {notes.map((note) => (
+                                <NoteItem
+                                    key={note.id}
+                                    note={note}
+                                    onEdit={setEditingNote}
+                                    onDelete={deleteNote}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+</body>
+
+</html>
